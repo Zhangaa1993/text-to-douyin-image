@@ -38,7 +38,7 @@
 
 ## 🚀 快速开始
 
-双击 `text-to-douyin-image.html` —— 浏览器自动打开，立即可用
+下载到本地，双击 `text-to-douyin-image.html` —— 浏览器自动打开，立即可用
 
 ## 📖 使用说明
 
