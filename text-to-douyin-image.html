@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>字图工坊 · 文字转抖音图片</title>
+<meta name="description" content="将文字内容转换为适合抖音发布的图文卡片，浏览器即开即用。">
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<style>
+:root {
+  --primary: #185FA5;
+  --primary-light: #F0F7FF;
+  --primary-hover: #134780;
+  --bg: #F7F8FB;
+  --panel-bg: #FFFFFF;
+  --border: #E5E7EB;
+  --border-strong: #D1D5DB;
+  --text: #1F2937;
+  --text-light: #6B7280;
+  --text-lighter: #9CA3AF;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.06);
+  --shadow: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  background: white;
+  color: var(--text);
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+
+button:hover { transform: translateY(-1px); }
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+.btn-primary:hover { background: var(--primary-hover); }
+
+.btn-secondary {
+  background: white;
+  color: var(--text);
+  border-color: var(--border);
+}
+.btn-secondary:hover { background: #F3F4F6; }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-light);
+  padding: 6px 10px;
+}
+.btn-ghost:hover { background: rgba(0,0,0,0.05); }
+
+/* Header */
+header {
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.logo-icon {
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #185FA5 0%, #4A90E2 100%);
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(24,95,165,0.3);
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.logo-text .sub {
+  font-size: 11px;
+  font-weight: normal;
+  color: var(--text-light);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* Layout */
+main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 16px;
+  padding: 16px;
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+  min-height: 0;
+}
+
+.workarea {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  min-width: 0;
+}
+
+.panel {
+  background: var(--panel-bg);
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-hint {
+  font-size: 11px;
+  color: var(--text-light);
+  font-weight: normal;
+}
+
+/* Input panel */
+.input-group {
+  margin-bottom: 12px;
+}
+
+.input-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 5px;
+}
+
+.input-group label .icon {
+  margin-right: 4px;
+}
+
+.input-group input,
+.input-group textarea {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  transition: all 0.15s;
+  background: white;
+}
+
+.input-group input:focus,
+.input-group textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(24,95,165,0.1);
+}
+
+.input-group textarea {
+  resize: vertical;
+  min-height: 130px;
+  line-height: 1.5;
+  font-family: inherit;
+}
+
+/* Style panel */
+.section-tabs {
+  display: flex;
+  background: #F3F4F6;
+  border-radius: 8px;
+  padding: 3px;
+  margin-bottom: 14px;
+  gap: 2px;
+}
+
+.section-tab {
+  flex: 1;
+  background: transparent;
+  color: var(--text-light);
+  padding: 8px 4px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+}
+
+.section-tab.active {
+  background: white;
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  font-weight: 600;
+}
+
+.section-tab:hover { transform: none; }
+.section-tab.active:hover { background: white; }
+
+.control-group {
+  margin-bottom: 13px;
+}
+
+.control-group > label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.slider-row input[type="range"] {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+
+.slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.slider-row .value {
+  width: 36px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.font-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.font-card {
+  border: 1.5px solid var(--border);
+  padding: 8px 6px;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.font-card:hover { border-color: var(--border-strong); }
+.font-card.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+.font-card.active .font-name { color: var(--primary); }
+
+.font-card .font-name {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 1px;
+}
+
+.font-card .font-desc {
+  font-size: 10px;
+  color: var(--text-light);
+}
+
+.align-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+}
+
+.align-btn {
+  padding: 7px 4px;
+  border: 1.5px solid var(--border);
+  background: white;
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--text-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  line-height: 1;
+}
+
+.align-btn .icon {
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.align-btn:hover { border-color: var(--border-strong); }
+.align-btn.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 5px;
+}
+
+.color-cell {
+  aspect-ratio: 1;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  position: relative;
+  transition: all 0.15s;
+}
+
+.color-cell:hover { transform: scale(1.08); }
+
+.color-cell.active {
+  border-color: var(--primary);
+  transform: scale(1.05);
+}
+
+.color-cell.active::after {
+  content: '✓';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 11px;
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.color-cell[data-color="#FFFFFF"].active::after,
+.color-cell[data-color="#FAEEDA"].active::after,
+.color-cell[data-color="#F5F5F5"].active::after {
+  color: var(--primary);
+  text-shadow: none;
+}
+
+/* Preview panel */
+.preview-panel {
+  min-height: 0;
+}
+
+.preview-area {
+  background: linear-gradient(135deg, #F3F4F6 0%, #E5E7EB 100%);
+  border-radius: 8px;
+  padding: 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  overflow-y: auto;
+  min-height: 500px;
+}
+
+.phone-row {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.phone {
+  width: 220px;
+  height: 392px;
+  border-radius: 18px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+  transition: transform 0.3s;
+  background: #fff;
+}
+
+.phone:hover {
+  transform: translateY(-4px);
+}
+
+.phone-inner {
+  width: 100%;
+  height: 100%;
+  padding: 30px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.phone-title {
+  font-weight: 700;
+  margin-bottom: 18px;
+  flex-shrink: 0;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.phone-body {
+  flex: 1;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: hidden;
+  line-height: 1.45;
+}
+
+.phone-author {
+  font-size: 9px;
+  margin-top: 14px;
+  flex-shrink: 0;
+  padding-top: 6px;
+  opacity: 0.85;
+}
+
+.page-indicator {
+  position: absolute;
+  bottom: 6px;
+  right: 8px;
+  font-size: 8px;
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty-state {
+  color: var(--text-light);
+  font-size: 13px;
+  text-align: center;
+  padding: 60px 20px;
+  margin: auto;
+}
+
+.empty-state .icon {
+  font-size: 36px;
+  margin-bottom: 12px;
+  opacity: 0.4;
+}
+
+.page-nav-hint {
+  font-size: 12px;
+  color: var(--text-light);
+  text-align: center;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.2s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.2s;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.modal h3 {
+  margin-bottom: 16px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal h3 .close-btn {
+  background: transparent;
+  color: var(--text-light);
+  font-size: 18px;
+  padding: 4px 8px;
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.template-card {
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  background: white;
+}
+
+.template-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.template-preview {
+  width: 100%;
+  aspect-ratio: 9/16;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px;
+  text-align: center;
+}
+
+.template-preview .sample {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-top: 4px;
+  font-weight: normal;
+}
+
+.template-name {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.draft-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.draft-item {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.draft-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.draft-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.draft-meta {
+  font-size: 11px;
+  color: var(--text-light);
+  margin-bottom: 3px;
+}
+
+.draft-preview {
+  font-size: 12px;
+  color: var(--text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.draft-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.draft-actions button {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+/* Flash message */
+.flash-msg {
+  position: fixed;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.88);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  z-index: 200;
+  transition: opacity 0.3s, transform 0.3s;
+  box-shadow: var(--shadow-lg);
+}
+
+/* Hidden export container */
+.export-stage {
+  position: fixed;
+  top: -10000px;
+  left: -10000px;
+  width: 750px;
+  height: 1334px;
+  pointer-events: none;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+  .workarea {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  header {
+    padding: 10px 14px;
+  }
+  .logo-text { display: none; }
+  .actions button { padding: 6px 10px; font-size: 12px; }
+  .actions button .btn-text { display: none; }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-lighter);
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">字</div>
+    <div class="logo-text">
+      <span>字图工坊</span>
+      <span class="sub">文字转抖音图片 · 浏览器即开即用</span>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn-secondary" onclick="openTemplates()" title="选择预设主题模板">
+      🎨 <span class="btn-text">主题模板</span>
+    </button>
+    <button class="btn-secondary" onclick="openDrafts()" title="查看历史草稿">
+      📁 <span class="btn-text">历史记录</span>
+    </button>
+    <button class="btn-secondary" onclick="saveDraft()" title="保存当前内容为草稿">
+      💾 <span class="btn-text">保存草稿</span>
+    </button>
+    <button class="btn-primary" onclick="exportImages()" title="导出为 PNG 图片">
+      📥 <span class="btn-text">导出图片</span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section class="workarea">
+
+    <!-- 内容编辑面板 -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>📝 内容编辑</span>
+        <span class="panel-hint">输入文字内容</span>
+      </div>
+
+      <div class="input-group">
+        <label><span class="icon">📝</span>标题</label>
+        <input type="text" id="input-title" placeholder="给你的图文起个标题（最多 30 字）" maxlength="50" oninput="onInput()">
+      </div>
+
+      <div class="input-group">
+        <label><span class="icon">📄</span>正文</label>
+        <textarea id="input-body" placeholder="在这里输入正文内容...&#10;&#10;段落之间用空行分隔，长文会自动拆分到不同图片。" oninput="onInput()"></textarea>
+      </div>
+
+      <div class="input-group">
+        <label><span class="icon">👤</span>作者</label>
+        <input type="text" id="input-author" placeholder="署名（可选）" maxlength="20" oninput="onInput()">
+      </div>
+    </div>
+
+    <!-- 样式调整面板 -->
+    <div class="panel" style="border-left: 3px solid var(--primary-light);">
+      <div class="panel-title">
+        <span>🎨 样式调整</span>
+        <span class="panel-hint" id="active-section-label">正在编辑：标题</span>
+      </div>
+
+      <div class="section-tabs">
+        <button class="section-tab active" data-section="title" onclick="setActiveSection('title')">📝 标题</button>
+        <button class="section-tab" data-section="body" onclick="setActiveSection('body')">📄 正文</button>
+        <button class="section-tab" data-section="author" onclick="setActiveSection('author')">👤 作者</button>
+      </div>
+
+      <div class="control-group">
+        <label>字号 <span class="value" id="font-size-value">36</span></label>
+        <input type="range" id="font-size" min="10" max="60" value="36" oninput="updateStyle('fontSize', this.value)">
+      </div>
+
+      <div class="control-group">
+        <label>字体</label>
+        <div class="font-cards">
+          <div class="font-card active" data-font="sans" onclick="setFont('sans', this)">
+            <div class="font-name" style="font-family:-apple-system, sans-serif;">思源黑体</div>
+            <div class="font-desc">现代 · 易读</div>
+          </div>
+          <div class="font-card" data-font="serif" onclick="setFont('serif', this)">
+            <div class="font-name" style="font-family:'Songti SC', serif;">思源宋体</div>
+            <div class="font-desc">古典 · 文艺</div>
+          </div>
+          <div class="font-card" data-font="kai" onclick="setFont('kai', this)">
+            <div class="font-name" style="font-family:'Kaiti SC', serif;">霞鹜文楷</div>
+            <div class="font-desc">手写 · 优雅</div>
+          </div>
+          <div class="font-card" data-font="mono" onclick="setFont('mono', this)">
+            <div class="font-name" style="font-family:monospace;">等宽字体</div>
+            <div class="font-desc">复古 · 科技</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>对齐方式</label>
+        <div class="align-group">
+          <button class="align-btn" data-align="left" onclick="setAlign('left', this)">
+            <span class="icon">⫷</span>
+            <span>左对齐</span>
+          </button>
+          <button class="align-btn active" data-align="center" onclick="setAlign('center', this)">
+            <span class="icon">≡</span>
+            <span>居中</span>
+          </button>
+          <button class="align-btn" data-align="right" onclick="setAlign('right', this)">
+            <span class="icon">⫸</span>
+            <span>右对齐</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label>字体颜色</label>
+        <div class="color-grid" id="text-color-grid"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 预览面板 -->
+  <section class="panel preview-panel">
+    <div class="panel-title">
+      <span>📱 效果预览</span>
+      <span class="panel-hint" id="preview-hint">输入内容开始创作</span>
+    </div>
+
+    <div class="preview-area" id="preview-container">
+      <div class="empty-state">
+        <div class="icon">📱</div>
+        <div>在左侧输入内容</div>
+        <div style="margin-top:6px;font-size:12px;">这里会实时显示手机预览效果</div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);">
+      <div class="control-group" style="margin-bottom:0;">
+        <label>🖼️ 背景颜色 <span style="font-size:11px;color:var(--text-lighter);">影响所有图片</span></label>
+        <div class="color-grid" id="bg-color-grid"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 离屏导出舞台 -->
+<div class="export-stage" id="export-stage"></div>
+
+<!-- 模态框根节点 -->
+<div id="modal-root"></div>
+
+<script>
+// ============================================================
+// 配置常量
+// ============================================================
+const COLORS = [
+  '#000000', '#4B5563', '#9CA3AF', '#FFFFFF',
+  '#E24B4A', '#F97316', '#FBBF24', '#1D9E75',
+  '#06B6D4', '#185FA5', '#6366F1', '#A855F7',
+  '#EC4899', '#8B5E3C', '#5D4037', '#FCD34D'
+];
+
+const THEMES = {
+  'minimal-white': {
+    name: '极简白', desc: '干净 · 通用',
+    bg: '#FFFFFF',
+    titleColor: '#1A1A1A', titleAlign: 'center',
+    bodyColor: '#2C2C2C', bodyAlign: 'left',
+    authorColor: '#9CA3AF',
+    titleFont: 36, bodyFont: 24
+  },
+  'dark-night': {
+    name: '深夜黑', desc: '热门 · 高级',
+    bg: '#0F1115',
+    titleColor: '#FFFFFF', titleAlign: 'center',
+    bodyColor: '#D1D5DB', bodyAlign: 'left',
+    authorColor: '#6B7280',
+    titleFont: 36, bodyFont: 24
+  },
+  'morandy-blue': {
+    name: '莫兰迪', desc: '温柔 · 莫兰迪',
+    bg: '#D4D6CF',
+    titleColor: '#3D4A3D', titleAlign: 'center',
+    bodyColor: '#4A5759', bodyAlign: 'left',
+    authorColor: '#7B8B6F',
+    titleFont: 32, bodyFont: 22
+  },
+  'literary-beige': {
+    name: '文艺米色', desc: '书卷 · 复古',
+    bg: '#FAEEDA',
+    titleColor: '#5D4037', titleAlign: 'center',
+    bodyColor: '#3E2723', bodyAlign: 'left',
+    authorColor: '#8D6E63',
+    titleFont: 32, bodyFont: 22
+  },
+  'business-gray': {
+    name: '商务灰', desc: '简约 · 专业',
+    bg: '#F5F7FA',
+    titleColor: '#1565C0', titleAlign: 'left',
+    bodyColor: '#37474F', bodyAlign: 'left',
+    authorColor: '#78909C',
+    titleFont: 34, bodyFont: 22
+  },
+  'sunset-orange': {
+    name: '暖橙落日', desc: '活力 · 醒目',
+    bg: '#FFE8D6',
+    titleColor: '#B54708', titleAlign: 'center',
+    bodyColor: '#7C2D12', bodyAlign: 'left',
+    authorColor: '#9A3412',
+    titleFont: 34, bodyFont: 22
+  }
+};
+
+const FONTS = {
+  sans: '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif',
+  serif: '"Songti SC", "STSong", "SimSun", "Noto Serif SC", serif',
+  kai: '"Kaiti SC", "STKaiti", "KaiTi", "LXGW WenKai", serif',
+  mono: '"SF Mono", "Cascadia Mono", "Courier New", monospace'
+};
+
+const SCALE = 0.293; // 预览 220px / 实际 750px = 0.293
+
+const STORAGE_KEY_CURRENT = 'zgtf-current';
+const STORAGE_KEY_DRAFTS = 'zgtf-drafts';
+const MAX_DRAFTS = 20;
+
+// ============================================================
+// 应用状态
+// ============================================================
+const state = {
+  title: '',
+  body: '',
+  author: '',
+  activeSection: 'title',
+  styles: {
+    title: { fontSize: 36, font: 'sans', textAlign: 'center', color: '#1A1A1A' },
+    body:  { fontSize: 24, font: 'sans', textAlign: 'left',   color: '#2C2C2C' },
+    author:{ fontSize: 14, font: 'sans', textAlign: 'center', color: '#9CA3AF' }
+  },
+  background: '#FFFFFF',
+  pages: ['']
+};
+
+// ============================================================
+// 初始化
+// ============================================================
+function init() {
+  buildColorGrid('text-color-grid', COLORS, state.styles.title.color, (color) => {
+    state.styles[state.activeSection].color = color;
+    renderPreview();
+    scheduleSave();
+  });
+  buildColorGrid('bg-color-grid', COLORS, state.background, (color) => {
+    state.background = color;
+    renderPreview();
+    scheduleSave();
+  });
+
+  // 恢复上次状态
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_CURRENT);
+    if (saved) {
+      const data = JSON.parse(saved);
+      Object.assign(state, data);
+      delete state.pages;
+      document.getElementById('input-title').value = state.title;
+      document.getElementById('input-body').value = state.body;
+      document.getElementById('input-author').value = state.author;
+      syncStyleControls();
+    }
+  } catch(e) { console.warn('恢复状态失败', e); }
+
+  splitBody();
+  renderPreview();
+}
+
+function buildColorGrid(id, colors, initialColor, onPick) {
+  const grid = document.getElementById(id);
+  grid.innerHTML = colors.map(c =>
+    `<div class="color-cell${c === initialColor ? ' active' : ''}" data-color="${c}" style="background:${c}" title="${c}"></div>`
+  ).join('');
+  grid.addEventListener('click', (e) => {
+    const cell = e.target.closest('.color-cell');
+    if (!cell) return;
+    grid.querySelectorAll('.color-cell').forEach(c => c.classList.remove('active'));
+    cell.classList.add('active');
+    onPick(cell.dataset.color);
+  });
+}
+
+// ============================================================
+// 内容输入处理
+// ============================================================
+function onInput() {
+  state.title = document.getElementById('input-title').value;
+  state.body = document.getElementById('input-body').value;
+  state.author = document.getElementById('input-author').value;
+  splitBody();
+  renderPreview();
+  scheduleSave();
+}
+
+// ============================================================
+// 样式控制
+// ============================================================
+function setActiveSection(section) {
+  state.activeSection = section;
+  document.querySelectorAll('.section-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.section === section);
+  });
+  const labels = { title: '标题', body: '正文', author: '作者' };
+  document.getElementById('active-section-label').textContent = `正在编辑：${labels[section]}`;
+  syncStyleControls();
+}
+
+function syncStyleControls() {
+  const style = state.styles[state.activeSection];
+  document.getElementById('font-size').value = style.fontSize;
+  document.getElementById('font-size-value').textContent = style.fontSize;
+  document.querySelectorAll('.font-card').forEach(c => {
+    c.classList.toggle('active', c.dataset.font === style.font);
+  });
+  document.querySelectorAll('.align-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.align === style.textAlign);
+  });
+  document.querySelectorAll('#text-color-grid .color-cell').forEach(c => {
+    c.classList.toggle('active', c.dataset.color === style.color);
+  });
+}
+
+function updateStyle(key, value) {
+  const sec = state.activeSection;
+  state.styles[sec][key] = parseInt(value);
+  document.getElementById('font-size-value').textContent = state.styles[sec].fontSize;
+  renderPreview();
+  scheduleSave();
+}
+
+function setFont(font, el) {
+  state.styles[state.activeSection].font = font;
+  document.querySelectorAll('.font-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderPreview();
+  scheduleSave();
+}
+
+function setAlign(align, el) {
+  state.styles[state.activeSection].textAlign = align;
+  document.querySelectorAll('.align-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderPreview();
+  scheduleSave();
+}
+
+// ============================================================
+// 文本拆分逻辑
+// ============================================================
+function splitBody() {
+  const body = state.body;
+  if (!body || !body.trim()) { state.pages = ['']; return; }
+
+  const fontSize = state.styles.body.fontSize;
+  const titleSize = state.styles.title.fontSize;
+  const authorSize = state.styles.author.fontSize;
+
+  // 画布可用区域（按 750×1334 设计稿算）
+  const canvasW = 750, canvasH = 1334;
+  const paddingX = 80;          // 左右内边距
+  const paddingTop = 140;       // 顶部内边距
+  const paddingBottom = 100;    // 底部内边距
+  const gapTitle = 80;          // 标题与正文的间距
+  const gapAuthor = 40;         // 正文与作者的间距
+  const pageNumH = 30;          // 页码高度
+
+  // 估算正文可用高度
+  const titleH = (state.title ? titleSize * 1.4 : 0) + (state.title ? gapTitle : 0);
+  const authorH = (state.author ? authorSize * 1.4 + gapAuthor : 0);
+  const bodyAreaH = canvasH - paddingTop - paddingBottom - titleH - authorH - pageNumH;
+
+  // 每行字数估算（中文字符宽度接近字号）
+  const charWidth = fontSize * 1.0;
+  const lineHeight = fontSize * 1.45;
+  const charsPerLine = Math.max(5, Math.floor((canvasW - paddingX * 2) / charWidth));
+  const linesPerPage = Math.max(4, Math.floor(bodyAreaH / lineHeight));
+
+  // 把用户输入拆成逻辑行（保留所有换行，空行也保留作为段落分隔）
+  const logicalLines = body.split(/\r?\n/);
+
+  // 把每个逻辑行展开为物理行（长行按字符折断；空行作为一个空物理行）
+  const physicalLines = [];
+  for (const ll of logicalLines) {
+    if (ll === '') {
+      // 空行作为 1 个空物理行（尊重用户排版）
+      physicalLines.push('');
+      continue;
+    }
+    if (ll.length <= charsPerLine) {
+      physicalLines.push(ll);
+    } else {
+      // 长行按 charsPerLine 切片（用户没主动换行的连续长串）
+      let i = 0;
+      while (i < ll.length) {
+        physicalLines.push(ll.slice(i, i + charsPerLine));
+        i += charsPerLine;
+      }
+    }
+  }
+
+  // 按行数累加，超出每页容量就翻页
+  const pages = [];
+  let bufLines = [];
+  for (const line of physicalLines) {
+    if (bufLines.length >= linesPerPage) {
+      pages.push(bufLines.join('\n'));
+      bufLines = [];
+    }
+    bufLines.push(line);
+  }
+  if (bufLines.length > 0) {
+    pages.push(bufLines.join('\n'));
+  }
+
+  state.pages = pages.length ? pages : [''];
+}
+
+function splitToSentences(text) {
+  // 备用工具：在中英文标点后切分（当前拆图不再使用，预留给未来扩展）
+  const parts = text.split(/(?<=[。！？!?\.\n;；])/);
+  return parts.filter(p => p.trim());
+}
+
+// ============================================================
+// 预览渲染
+// ============================================================
+function renderPreview() {
+  const container = document.getElementById('preview-container');
+  const hint = document.getElementById('preview-hint');
+
+  const hasContent = state.title || state.body || state.author;
+  if (!hasContent) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📱</div>
+        <div>在左侧输入内容</div>
+        <div style="margin-top:6px;font-size:12px;">这里会实时显示手机预览效果</div>
+      </div>`;
+    hint.textContent = '输入内容开始创作';
+    return;
+  }
+
+  const pages = state.pages.filter(p => p && p.trim());
+  const displayPages = pages.length ? pages : [''];
+  const totalPages = displayPages.length;
+
+  hint.textContent = `共 ${totalPages} 张图片`;
+
+  // 最多展示 3 张
+  const visibleCount = Math.min(totalPages, 3);
+  const visiblePages = displayPages.slice(0, visibleCount);
+
+  container.innerHTML = `
+    <div class="phone-row">
+      ${visiblePages.map((content, i) => renderPreviewPhone(content, i + 1, totalPages)).join('')}
+    </div>
+    ${totalPages > 3 ? `
+      <div class="page-nav-hint">
+        📑 显示前 ${visibleCount} 张，共 ${totalPages} 张，导出后可获得全部
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderPreviewPhone(bodyContent, pageNum, totalPages) {
+  const ts = state.styles.title;
+  const bs = state.styles.body;
+  const as = state.styles.author;
+  // 注意：style 用单引号包裹，避免 font-family 里双引号提前结束 style 属性
+  return `
+    <div class="phone">
+      <div class="phone-inner" style='background:${state.background}'>
+        <div class="phone-title" style='
+          font-size:${Math.round(ts.fontSize * SCALE)}px;
+          font-family:${FONTS[ts.font]};
+          color:${ts.color};
+          text-align:${ts.textAlign};
+        '>${escapeHtml(state.title)}</div>
+        <div class="phone-body" style='
+          font-size:${Math.round(bs.fontSize * SCALE)}px;
+          font-family:${FONTS[bs.font]};
+          color:${bs.color};
+          text-align:${bs.textAlign};
+        '>${escapeHtml(bodyContent)}</div>
+        ${state.author ? `<div class="phone-author" style='
+          font-size:${Math.round(as.fontSize * SCALE)}px;
+          font-family:${FONTS[as.font]};
+          color:${as.color};
+          text-align:${as.textAlign};
+        '>— ${escapeHtml(state.author)}</div>` : ''}
+        ${totalPages > 1 ? `<div class="page-indicator" style="color:${getIndicatorColor(state.background)}">${pageNum} / ${totalPages}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function getIndicatorColor(bg) {
+  // 根据背景明暗返回合适的指示色
+  const hex = bg.replace('#', '');
+  if (hex.length !== 6) return 'rgba(0,0,0,0.3)';
+  const r = parseInt(hex.substring(0,2), 16);
+  const g = parseInt(hex.substring(2,4), 16);
+  const b = parseInt(hex.substring(4,6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 128 ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.4)';
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, m => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[m]));
+}
+
+// ============================================================
+// 主题模板
+// ============================================================
+function openTemplates() {
+  const root = document.getElementById('modal-root');
+  const themes = Object.entries(THEMES);
+  root.innerHTML = `
+    <div class="modal-overlay" onclick="closeModal(event)">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3>
+          <span>🎨 选择主题模板</span>
+          <button class="close-btn" onclick="closeModal()">×</button>
+        </h3>
+        <div class="template-grid">
+          ${themes.map(([key, theme]) => `
+            <div class="template-card" onclick="applyTheme('${key}')">
+              <div class="template-preview" style="background:${theme.bg};color:${theme.titleColor};">
+                <div>${theme.name}</div>
+                <div class="sample" style="color:${theme.bodyColor}">段落示例</div>
+              </div>
+              <div class="template-name">${theme.name}</div>
+              <div style="text-align:center;font-size:11px;color:var(--text-light);margin-top:2px;">${theme.desc}</div>
+            </div>
+          `).join('')}
+        </div>
+        <p style="margin-top:16px;font-size:12px;color:var(--text-light);text-align:center;">
+          💡 提示：点击模板即可应用样式，应用后仍可在右侧继续微调
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+function applyTheme(key) {
+  const t = THEMES[key];
+  state.background = t.bg;
+  state.styles.title.color = t.titleColor;
+  state.styles.title.fontSize = t.titleFont;
+  state.styles.title.textAlign = t.titleAlign;
+  state.styles.body.color = t.bodyColor;
+  state.styles.body.fontSize = t.bodyFont;
+  state.styles.body.textAlign = t.bodyAlign;
+  state.styles.author.color = t.authorColor;
+
+  // 更新 UI
+  syncStyleControls();
+  document.querySelectorAll('#bg-color-grid .color-cell').forEach(c => {
+    c.classList.toggle('active', c.dataset.color === t.bg);
+  });
+
+  splitBody();
+  renderPreview();
+  closeModal();
+  flash('✅ 已应用主题：' + t.name);
+  scheduleSave();
+}
+
+function closeModal(e) {
+  if (e && e.target && !e.target.classList.contains('modal-overlay')) return;
+  document.getElementById('modal-root').innerHTML = '';
+}
+
+// ============================================================
+// 草稿管理
+// ============================================================
+function saveDraft() {
+  const data = { ...state };
+  delete data.pages;
+  const drafts = JSON.parse(localStorage.getItem(STORAGE_KEY_DRAFTS) || '[]');
+  const entry = {
+    id: Date.now(),
+    ...data,
+    savedAt: new Date().toISOString()
+  };
+  drafts.unshift(entry);
+  if (drafts.length > MAX_DRAFTS) drafts.length = MAX_DRAFTS;
+  localStorage.setItem(STORAGE_KEY_DRAFTS, JSON.stringify(drafts));
+  localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(data));
+  flash(`✅ 已保存到历史记录（共 ${drafts.length} 条）`);
+}
+
+function openDrafts() {
+  const drafts = JSON.parse(localStorage.getItem(STORAGE_KEY_DRAFTS) || '[]');
+  const root = document.getElementById('modal-root');
+
+  root.innerHTML = `
+    <div class="modal-overlay" onclick="closeModal(event)">
+      <div class="modal" onclick="event.stopPropagation()">
+        <h3>
+          <span>📁 历史记录 (${drafts.length})</span>
+          <button class="close-btn" onclick="closeModal()">×</button>
+        </h3>
+        ${drafts.length === 0 ? `
+          <div style="text-align:center;padding:40px 20px;color:var(--text-light);">
+            <div style="font-size:36px;opacity:0.3;margin-bottom:12px;">📁</div>
+            <div>还没有保存过草稿</div>
+            <div style="font-size:12px;margin-top:6px;">点击右上角"保存草稿"按钮即可保存当前内容</div>
+          </div>
+        ` : `
+          <div class="draft-list">
+            ${drafts.map(d => `
+              <div class="draft-item">
+                <div class="draft-info">
+                  <div class="draft-title">${escapeHtml(d.title || '无标题')}</div>
+                  <div class="draft-meta">${new Date(d.savedAt).toLocaleString('zh-CN')}</div>
+                  <div class="draft-preview">${escapeHtml((d.body || '').slice(0, 60))}${(d.body || '').length > 60 ? '...' : ''}</div>
+                </div>
+                <div class="draft-actions">
+                  <button class="btn-secondary" onclick="loadDraft(${d.id})">加载</button>
+                  <button class="btn-secondary" onclick="deleteDraft(${d.id})" style="color:#DC2626;">删除</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          ${drafts.length > 0 ? `<button class="btn-secondary" style="width:100%;margin-top:12px;" onclick="clearAllDrafts()">🗑️ 清空所有记录</button>` : ''}
+        `}
+      </div>
+    </div>
+  `;
+}
+
+function loadDraft(id) {
+  const drafts = JSON.parse(localStorage.getItem(STORAGE_KEY_DRAFTS) || '[]');
+  const draft = drafts.find(d => d.id === id);
+  if (!draft) return;
+  Object.assign(state, draft);
+  delete state.pages;
+  document.getElementById('input-title').value = state.title;
+  document.getElementById('input-body').value = state.body;
+  document.getElementById('input-author').value = state.author;
+  syncStyleControls();
+  document.querySelectorAll('#bg-color-grid .color-cell').forEach(c => {
+    c.classList.toggle('active', c.dataset.color === state.background);
+  });
+  splitBody();
+  renderPreview();
+  closeModal();
+  flash('✅ 草稿已加载');
+}
+
+function deleteDraft(id) {
+  const drafts = JSON.parse(localStorage.getItem(STORAGE_KEY_DRAFTS) || '[]');
+  const filtered = drafts.filter(d => d.id !== id);
+  localStorage.setItem(STORAGE_KEY_DRAFTS, JSON.stringify(filtered));
+  openDrafts();
+}
+
+function clearAllDrafts() {
+  if (confirm('确定清空所有历史记录？此操作不可恢复。')) {
+    localStorage.removeItem(STORAGE_KEY_DRAFTS);
+    openDrafts();
+    flash('🗑️ 已清空所有记录');
+  }
+}
+
+// ============================================================
+// 导出图片
+// ============================================================
+async function exportImages() {
+  if (!state.title && !state.body && !state.author) {
+    flash('⚠️ 请先输入内容');
+    return;
+  }
+
+  const pages = state.pages.filter(p => p && p.trim());
+  if (pages.length === 0) {
+    flash('⚠️ 内容为空');
+    return;
+  }
+
+  const stage = document.getElementById('export-stage');
+  flash(`⏳ 正在生成 ${pages.length} 张图片...`);
+
+  try {
+    const canvases = [];
+    for (let i = 0; i < pages.length; i++) {
+      stage.innerHTML = renderFullPhone(pages[i], i + 1, pages.length);
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const canvas = await html2canvas(stage, {
+        scale: 2,
+        backgroundColor: state.background,
+        logging: false,
+        useCORS: true,
+        allowTaint: true
+      });
+      canvases.push(canvas);
+      flash(`⏳ 已生成 ${i + 1}/${pages.length} 张...`);
+    }
+
+    const safeTitle = (state.title || '字图').replace(/[\\/:*?"<>|]/g, '_').slice(0, 30);
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+
+    if (canvases.length === 1) {
+      canvases[0].toBlob(blob => {
+        saveAs(blob, `${safeTitle}_${ts}.png`);
+        flash('✅ 已下载 PNG 图片');
+      });
+    } else {
+      const zip = new JSZip();
+      for (let i = 0; i < canvases.length; i++) {
+        const blob = await new Promise(r => canvases[i].toBlob(r));
+        const idx = String(i + 1).padStart(2, '0');
+        zip.file(`${safeTitle}_${idx}.png`, blob);
+      }
+      const content = await zip.generateAsync({ type: 'blob' });
+      saveAs(content, `${safeTitle}_${ts}.zip`);
+      flash(`✅ 已打包下载 ${canvases.length} 张图片`);
+    }
+  } catch (err) {
+    console.error(err);
+    flash('❌ 导出失败：' + (err.message || err));
+  }
+}
+
+function renderFullPhone(bodyContent, pageNum, totalPages) {
+  const ts = state.styles.title;
+  const bs = state.styles.body;
+  const as = state.styles.author;
+
+  // 注意：style 用单引号包裹，避免 font-family 里双引号提前结束 style 属性
+  return `
+    <div style='
+      width:750px;
+      height:1334px;
+      background:${state.background};
+      padding:140px 80px 110px;
+      box-sizing:border-box;
+      display:flex;
+      flex-direction:column;
+      position:relative;
+    '>
+      <div style='
+        font-size:${ts.fontSize}px;
+        font-weight:700;
+        color:${ts.color};
+        text-align:${ts.textAlign};
+        margin-bottom:80px;
+        line-height:1.4;
+        font-family:${FONTS[ts.font]};
+        word-break:break-word;
+      '>${escapeHtml(state.title)}</div>
+
+      <div style='
+        flex:1;
+        font-size:${bs.fontSize}px;
+        color:${bs.color};
+        text-align:${bs.textAlign};
+        line-height:1.45;
+        white-space:pre-wrap;
+        word-break:break-word;
+        font-family:${FONTS[bs.font]};
+        overflow:hidden;
+      '>${escapeHtml(bodyContent)}</div>
+
+      ${state.author ? `
+        <div style='
+          font-size:${as.fontSize}px;
+          color:${as.color};
+          text-align:${as.textAlign};
+          margin-top:40px;
+          font-family:${FONTS[as.font]};
+        '>— ${escapeHtml(state.author)} —</div>
+      ` : ''}
+
+      ${totalPages > 1 ? `
+        <div style='
+          position:absolute;
+          bottom:40px;
+          right:80px;
+          font-size:18px;
+          color:${getIndicatorColor(state.background)};
+          font-variant-numeric:tabular-nums;
+          font-family:sans-serif;
+        '>${pageNum} / ${totalPages}</div>
+      ` : ''}
+    </div>
+  `;
+}
+
+// ============================================================
+// 工具函数
+// ============================================================
+let flashTimer;
+function flash(msg) {
+  let el = document.getElementById('flash-msg');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'flash-msg';
+    el.className = 'flash-msg';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  el.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(-50%) translateY(-10px)';
+  }, 2200);
+}
+
+let saveTimer;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    const data = { ...state };
+    delete data.pages;
+    try {
+      localStorage.setItem(STORAGE_KEY_CURRENT, JSON.stringify(data));
+    } catch(e) {}
+  }, 800);
+}
+
+// 启动应用
+init();
+</script>
+
+</body>
+</html>
